@@ -1,0 +1,149 @@
+{
+  "module": "jira",
+  "version": "1.0.0",
+  "description": "Fonte de verdade (doc canônico) do módulo Jira (backlog interno). Sistema A de referência: Nexus (github.com/patrickbloemer/nexus). Cada regra tem camada 1 (declarativa, agnóstica de implementação) e camada 2 (referência: paths + SQL do Sistema A).",
+  "systems": {
+    "A": {
+      "name": "Nexus",
+      "repo": "https://github.com/patrickbloemer/nexus",
+      "stack": "Vite+React+TS (frontend) / Express+TS (backend) / Supabase Postgres",
+      "module_prefix_db": "backlog_",
+      "module_label_ui": "Jira"
+    }
+  },
+  "rules": [
+    {
+      "id": "RULE-001",
+      "since": "1.0.0",
+      "title": "Código curto sequencial por org (TSK-NNN)",
+      "layer1": "Toda task tem um código humano sequencial por organização no formato TSK-NNN (zero-pad 3, começa em 1 por org). É gerado automaticamente na criação — o cliente nunca envia o código. Serve de referência falada ('ataca a TSK-007'). Único por (org, code).",
+      "layer2": {
+        "paths": ["backend/src/routes/backlog.ts (POST /api/backlog)"],
+        "sql": "tabela auxiliar public.backlog_task_counters(org_id pk, next_num); função public.backlog_next_code(org_id) incrementa atômico e retorna 'TSK-'||lpad(n,3,'0'); trigger BEFORE INSERT public.backlog_tasks_set_code preenche quando code é null; unique index backlog_tasks_code_unique (org_id, code). Migration 0015_backlog_short_code.sql."
+      }
+    },
+    {
+      "id": "RULE-002",
+      "since": "1.0.0",
+      "title": "Máquina de estados de status da task",
+      "layer1": "Status segue o ciclo: maturing (ideia crua) → ready (pronta p/ codar) → testing (implementada, em teste) → delivered (entregue, aprovada) → finalizado (entregue E registrada no doc canônico). De testing, reprovar volta pra ready; aprovar vai pra delivered. delivered_at é setado ao entrar em delivered e limpo ao sair. finalizado é terminal acima de delivered.",
+      "layer2": {
+        "paths": [
+          "backend/src/routes/backlog.ts (statusEnum, PATCH /api/backlog/:id)",
+          "frontend/src/lib/queries/backlog.ts (BacklogStatus, STATUS_LABEL)"
+        ],
+        "sql": "enum public.backlog_task_status = (maturing, ready, testing, delivered, finalizado). Trigger public.backlog_tasks_track_delivered seta/limpa delivered_at. Migrations 0012_backlog.sql + 0023_backlog_status_finalizado.sql."
+      }
+    },
+    {
+      "id": "RULE-003",
+      "since": "1.0.0",
+      "title": "Plano de teste obrigatório ao mover pra testing",
+      "layer1": "Ao mover uma task pra testing, test_notes deve conter as seções: O que testar / Como testar / Critério de aceite / O que foi mudado. Sem isso o validador (usuário) não consegue testar. test_notes é o conteúdo lido na validação.",
+      "layer2": {
+        "paths": ["backend/src/routes/backlog.ts (campo test_notes no PATCH)", "frontend/src/pages/backlog/BacklogDrawer.tsx (textarea de plano de teste, destacado em testing)"],
+        "sql": "coluna backlog_tasks.test_notes text. Migration 0013_backlog_test_notes.sql."
+      }
+    },
+    {
+      "id": "RULE-004",
+      "since": "1.0.0",
+      "title": "Ciclo de feedback de teste (imutável)",
+      "layer1": "Quando a task está em testing, o usuário aprova ou reprova. Cada decisão grava uma linha imutável de auditoria. reject → status volta pra ready (retrabalho) e registra o motivo; approve → status vai pra delivered. Entradas antigas nunca são editadas — sempre uma caixa nova. test_feedback guarda a última reprovação (indicador na lista).",
+      "layer2": {
+        "paths": ["backend/src/routes/backlog.ts (POST /api/backlog/:id/feedback; reject→'ready', approve→'delivered')"],
+        "sql": "tabela public.backlog_task_feedback (id, org_id, task_id, body, created_at, created_by) — append-only. Coluna backlog_tasks.test_feedback. Migrations 0014_backlog_module_feedback.sql + 0017_backlog_feedback_history.sql."
+      }
+    },
+    {
+      "id": "RULE-005",
+      "since": "1.0.0",
+      "title": "Status da sprint é derivado das tasks",
+      "layer1": "O status da sprint nunca é setado à mão de forma independente — é derivado das tasks que ela contém, sempre que uma task muda de status: todas entregues (delivered OU finalizado) → sprint delivered; todas em (testing/delivered/finalizado) → testing; alguma já saiu do 'a fazer' → in_progress; senão → open. finalizado conta no mesmo balde de delivered. NÃO existe status 'closed'.",
+      "layer2": {
+        "paths": ["backend/src/routes/backlog.ts (syncSprintStatus, chamado em PATCH e feedback)", "scripts/db.sh (comando sync-sprints, p/ escrita direta no banco)"],
+        "sql": "enum implícito de status da sprint: open|in_progress|testing|delivered. syncSprintStatus: allDelivered = every in (delivered,finalizado); allTested = every in (testing,delivered,finalizado); anyActive = some in (testing,delivered,finalizado)."
+      }
+    },
+    {
+      "id": "RULE-006",
+      "since": "1.0.0",
+      "title": "Soft delete em tudo",
+      "layer1": "Nada é apagado fisicamente. Toda tabela do módulo tem deleted_at timestamptz; 'excluir' seta deleted_at. Toda query filtra deleted_at IS NULL. Vale p/ task, subtask, sprint, anexo.",
+      "layer2": {
+        "paths": ["backend/src/routes/backlog.ts (DELETE endpoints setam deleted_at)"],
+        "sql": "coluna deleted_at em backlog_tasks, backlog_subtasks, backlog_sprints, backlog_task_attachments; índices parciais WHERE deleted_at IS NULL."
+      }
+    },
+    {
+      "id": "RULE-007",
+      "since": "1.0.0",
+      "title": "Multi-tenant + acesso só de funcionário",
+      "layer1": "Módulo interno: só funcionário (owner/employee) acessa; cliente nunca vê o backlog. org_id vem SEMPRE do token (JWT), nunca do corpo da requisição. RLS no banco gateia por org + papel; o backend ainda filtra org_id em toda query (defesa em profundidade).",
+      "layer2": {
+        "paths": ["backend/src/routes/backlog.ts (toda rota exige funcionário + filtra org_id)", "backend/src/lib/auth.ts (JWKS/RS256)"],
+        "sql": "RLS policies backlog_*_employee_all usando public.has_org_access(org_id) AND public.is_employee(). Migration 0012_backlog.sql."
+      }
+    },
+    {
+      "id": "RULE-008",
+      "since": "1.0.0",
+      "title": "Prioridade simples (baixa/media/alta) + priority_rank",
+      "layer1": "Priorização é baixa | media | alta (default media). priority_rank deriva pra ordenação server-side: baixa=1, media=2, alta=3. Ordenação padrão da lista é priority_desc, com created_at desc como desempate. (ICE — impact/confidence/ease — é LEGADO; usar só priority.)",
+      "layer2": {
+        "paths": ["backend/src/routes/backlog.ts (priorityEnum, order=priority_desc|priority_asc|created_desc|created_asc)", "frontend/src/lib/queries/backlog.ts (PRIORITY_RANK)"],
+        "sql": "colunas backlog_tasks.priority (enum baixa/media/alta) e priority_rank (derivada). Colunas legadas impact/confidence/ease/ice_score ainda existem mas não são usadas pela UI."
+      }
+    },
+    {
+      "id": "RULE-009",
+      "since": "1.0.0",
+      "title": "Sprint: code SPR-NNN, name=code, criação transacional",
+      "layer1": "Sprint agrupa tasks (N:N). Tem code sequencial por org (SPR-NNN); o name É o próprio code. Criação é transacional (gera code, usa como name, vincula todas as task_ids num call). Remover o vínculo de uma task NÃO apaga a task — só desassocia. Excluir a sprint (soft delete) não afeta as tasks.",
+      "layer2": {
+        "paths": ["backend/src/routes/backlog.ts (POST /api/backlog/sprint, DELETE .../tasks/:taskId)"],
+        "sql": "tabelas public.backlog_sprints e join public.backlog_sprint_tasks (pk composta sprint_id+task_id). RPC transacional public.backlog_create_sprint. Migrations 0016_backlog_sprints.sql + 0018_sprint_name_is_code.sql."
+      }
+    },
+    {
+      "id": "RULE-010",
+      "since": "1.0.0",
+      "title": "Subtasks de 1 nível",
+      "layer1": "Task pode ter subtasks (1 nível só, sem aninhamento). Cada subtask tem título, descrição, status (mesmo enum da task) e position (ordem). Nova subtask entra em max(position)+1. Soft delete.",
+      "layer2": {
+        "paths": ["backend/src/routes/backlog.ts (POST/PATCH/DELETE /api/backlog/:id/subtasks)"],
+        "sql": "tabela public.backlog_subtasks (task_id fk cascade, position int); índice (task_id, position) WHERE deleted_at IS NULL. Migration 0012_backlog.sql."
+      }
+    },
+    {
+      "id": "RULE-011",
+      "since": "1.0.0",
+      "title": "Anexos: paste de imagem → upload (nunca base64 inline)",
+      "layer1": "Task aceita anexos. Gesto principal: colar imagem (Ctrl+V) na descrição/plano de teste/feedback. O sistema NÃO embute base64 no HTML — intercepta o paste, faz upload pra storage privado e registra o arquivo como anexo numa galeria separada do texto. Bucket privado, path escopado por org (backlog/<org_id>/<task_id>/<uuid>.<ext>), servido por URL assinada (expira), nunca pública. feedback_id opcional amarra o anexo a uma reprovação específica (senão é anexo geral da task).",
+      "layer2": {
+        "paths": ["backend/src/routes/backlog.ts (POST/DELETE /api/backlog/:id/attachments)", "frontend/src/lib/uploadWithProgress.ts", "frontend/src/components/ui/Lightbox.tsx"],
+        "sql": "tabela public.backlog_task_attachments (org_id, task_id fk cascade, feedback_id fk nullable, path, filename, mime, size_bytes, deleted_at). Migrations 0021_backlog_attachments.sql + 0022_backlog_attachment_drafts.sql."
+      }
+    },
+    {
+      "id": "RULE-012",
+      "since": "1.0.0",
+      "title": "Regras invioláveis de agente (delivered / finalizado)",
+      "layer1": "Um agente automatizado NUNCA move uma task pra delivered — isso é exclusivo do usuário (botão Aprovar / edição manual). O agente transita só entre maturing, ready e testing. finalizado é exclusivo da 'sessão Finalizar': não é selecionável pela UI (não aparece nos pills/mover-para/filtro, só renderiza badge quando a task já está nele) e a API rejeita finalizado no POST/PATCH — a promoção delivered→finalizado é feita por escrita direta no banco. Marcar duplicata NÃO é entregar (soft delete ou campo duplicate_of, nunca delivered).",
+      "layer2": {
+        "paths": ["CLAUDE.md (REGRAS INVIOLÁVEIS #1 e #1b)", "backend/src/routes/backlog.ts (statusEnum NÃO inclui 'finalizado' → PATCH/POST rejeitam)", "frontend/src/pages/backlog/BacklogDrawer.tsx (STATUSES) e BacklogList.tsx (STATUS_GROUPS/STATUS_OPTIONS) — finalizado ausente de propósito"],
+        "sql": "enum backlog_task_status inclui 'finalizado' (DB), mas a camada de API/UI restringe a seleção."
+      }
+    },
+    {
+      "id": "RULE-013",
+      "since": "1.0.0",
+      "title": "Lista: busca tudo + filtra no client + filtros persistidos",
+      "layer1": "A tela de lista busca TODAS as tasks (sem filtro de módulo) do servidor e filtra/ordena no client. As contagens das abas de status são calculadas sobre o conjunto COMPLETO (não o filtrado), pra os números ficarem estáveis. Filtros são persistidos em localStorage sob chave versionada, com migração de valores legados (ex: ordenação antiga ice_desc → priority_desc).",
+      "layer2": {
+        "paths": ["frontend/src/pages/backlog/BacklogList.tsx (stats sobre allTasks; chave localStorage versionada; STATUS_GROUPS)", "frontend/src/lib/queries/backlog.ts (buildQuery encaminha só search/type/status/order)"],
+        "sql": "—"
+      }
+    }
+  ]
+}
