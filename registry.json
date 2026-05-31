@@ -1,7 +1,11 @@
 {
   "module": "jira",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Fonte de verdade (doc canônico) do módulo Jira (backlog interno). Sistema A de referência: Nexus (github.com/patrickbloemer/nexus). Cada regra tem camada 1 (declarativa, agnóstica de implementação) e camada 2 (referência: paths + SQL do Sistema A).",
+  "conventions": {
+    "tenant_isolation": "O canon NÃO obriga multi-tenant. 'Escopar dado por org_id' é uma escolha de data-model do Sistema A (Nexus é multi-tenant). Sistemas single-tenant (ex: adspulse/Helios, desvio DEV-002) satisfazem a intenção trivialmente, SEM coluna de tenant e SEM derivar tenant do token. Onde uma regra cita org_id, leia como 'escope ao dono do dado conforme a arquitetura do seu sistema' — em single-tenant isso é no-op.",
+    "internal_only": "O Jira é ferramenta INTERNA: não exposta a usuário externo/cliente. COMO garantir depende da arquitetura: se o sistema tem usuário externo/portal, restrinja a usuários internos; se não tem ninguém externo pra excluir, é satisfeito trivialmente. O gate por papel (is_employee) é específico do Nexus."
+  },
   "systems": {
     "A": {
       "name": "Nexus",
@@ -90,8 +94,8 @@
     {
       "id": "RULE-007",
       "since": "1.0.0",
-      "title": "Multi-tenant + acesso só de funcionário",
-      "layer1": "Módulo interno: só funcionário (owner/employee) acessa; cliente nunca vê o backlog. org_id vem SEMPRE do token (JWT), nunca do corpo da requisição. RLS no banco gateia por org + papel; o backend ainda filtra org_id em toda query (defesa em profundidade).",
+      "title": "Módulo interno + isolamento de dados (org_id e gate de papel são específicos do Sistema A)",
+      "layer1": "INTENÇÃO NORMATIVA (vale pra A/B/C): o Jira é uma ferramenta INTERNA — não é exposta a usuário externo/cliente. NÃO é normativo: 'multi-tenant', 'org_id em tudo' nem 'gate por papel de funcionário' — esses são mecanismos do Sistema A, não leis do módulo (ver conventions.tenant_isolation e conventions.internal_only). COMO garantir 'interno' depende da arquitetura: (a) se o sistema tem usuário externo/portal de cliente, restrinja o acesso a usuários internos; (b) se não há usuário externo pra excluir, é satisfeito trivialmente. ISOLAMENTO DE DADOS: multi-tenant → escope por tenant e derive o tenant SEMPRE do token (nunca do corpo); single-tenant → no-op (sem coluna de tenant). NEXUS (A): multi-tenant, org_id em tudo vindo do JWT, acesso só funcionário (owner/employee), RLS por org+papel + filtro no backend (defesa em profundidade). adspulse/Helios: single-tenant (DEV-002), sem org_id e sem gate de papel — não há usuário externo a excluir.",
       "layer2": {
         "paths": [
           "backend/src/routes/backlog.ts (toda rota exige funcionário + filtra org_id)",
