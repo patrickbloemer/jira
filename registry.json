@@ -1,6 +1,6 @@
 {
   "module": "jira",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Fonte de verdade (doc canônico) do módulo Jira (backlog interno). Sistema A de referência: Nexus (github.com/patrickbloemer/nexus). Cada regra tem camada 1 (declarativa, agnóstica de implementação) e camada 2 (referência: paths + SQL do Sistema A).",
   "systems": {
     "A": {
@@ -117,10 +117,10 @@
       "id": "RULE-009",
       "since": "1.0.0",
       "title": "Sprint: code SPR-NNN, name=code, criação transacional",
-      "layer1": "Sprint agrupa tasks (N:N). Tem code sequencial por org (SPR-NNN); o name É o próprio code. Criação é transacional (gera code, usa como name, vincula todas as task_ids num call). Remover o vínculo de uma task NÃO apaga a task — só desassocia. Excluir a sprint (soft delete) não afeta as tasks.",
+      "layer1": "Sprint agrupa tasks (N:N). Tem code sequencial por org (SPR-NNN); o name É o próprio code. Criação é transacional (gera code, usa como name, vincula todas as task_ids num call). Remover o vínculo de uma task NÃO apaga a task — só desassocia. Excluir a sprint (soft delete) não afeta as tasks. PROMOÇÃO AUTOMÁTICA AO ENTRAR NA SPRINT: ao vincular uma task à sprint (na criação ou ao adicionar a uma existente), toda task que estiver em 'maturing' (Árvore) é promovida pra 'ready' (Backlog) — entrar numa sprint significa que a ideia já está pronta pra codar. Quem já está em ready/testing/delivered/finalizado não é afetado (a promoção só sobe de maturing→ready, nunca rebaixa nem atravessa outros estados). Isso não fere RULE-012: maturing→ready é uma transição permitida.",
       "layer2": {
         "paths": [
-          "backend/src/routes/backlog.ts (POST /api/backlog/sprint, DELETE .../tasks/:taskId)"
+          "backend/src/routes/backlog.ts (POST /api/backlog/sprint, POST .../sprints/:id/tasks, DELETE .../tasks/:taskId; promoteMaturingToReady promove só os maturing pra ready)"
         ],
         "sql": "tabelas public.backlog_sprints e join public.backlog_sprint_tasks (pk composta sprint_id+task_id). RPC transacional public.backlog_create_sprint. Migrations 0016_backlog_sprints.sql + 0018_sprint_name_is_code.sql."
       }
@@ -141,14 +141,15 @@
       "id": "RULE-011",
       "since": "1.0.0",
       "title": "Anexos: paste de imagem → upload (nunca base64 inline)",
-      "layer1": "Task aceita anexos. Gesto principal: colar imagem (Ctrl+V) na descrição/plano de teste/feedback. O sistema NÃO embute base64 no HTML — intercepta o paste, faz upload pra storage privado e registra o arquivo como anexo numa galeria separada do texto. Bucket privado, path escopado por org (backlog/<org_id>/<task_id>/<uuid>.<ext>), servido por URL assinada (expira), nunca pública. feedback_id opcional amarra o anexo a uma reprovação específica (senão é anexo geral da task).",
+      "layer1": "Task aceita anexos. Gesto principal: colar imagem (Ctrl+V) na descrição/plano de teste/feedback. O sistema NÃO embute base64 no HTML — intercepta o paste, faz upload pra storage privado e registra o arquivo como anexo numa galeria separada do texto. Bucket privado, path escopado por org (backlog/<org_id>/<task_id>/<uuid>.<ext>), servido por URL assinada (expira), nunca pública. feedback_id opcional amarra o anexo a uma reprovação específica (senão é anexo geral da task). UPLOAD EAGER EM DRAFT (criação): no form de NOVA task (a task ainda não existe), o anexo colado/arrastado sobe IMEDIATAMENTE pra um 'draft' identificado por um draft_id gerado no client (não espera o Salvar) — com barra de progresso real. Ao criar a task, os anexos do draft são re-vinculados à task recém-criada (o POST de criar recebe draft_id). Se o usuário CANCELA a criação (ou descarta), os anexos órfãos do draft são PURGADOS (hard delete — nunca foram salvos de verdade). Ou seja: anexo em task existente é soft delete (RULE-006); anexo de draft cancelado é hard purge.",
       "layer2": {
         "paths": [
-          "backend/src/routes/backlog.ts (POST/DELETE /api/backlog/:id/attachments)",
-          "frontend/src/lib/uploadWithProgress.ts",
+          "backend/src/routes/backlog.ts (POST/DELETE /api/backlog/:id/attachments; POST/DELETE /api/backlog/drafts/:draftId/attachments; POST /api/backlog aceita draft_id e re-vincula)",
+          "frontend/src/lib/uploadWithProgress.ts (postJsonWithProgress)",
+          "frontend/src/lib/queries/backlog.ts (uploadDraftAttachment/deleteDraftAttachment/purgeDraftAttachments)",
           "frontend/src/components/ui/Lightbox.tsx"
         ],
-        "sql": "tabela public.backlog_task_attachments (org_id, task_id fk cascade, feedback_id fk nullable, path, filename, mime, size_bytes, deleted_at). Migrations 0021_backlog_attachments.sql + 0022_backlog_attachment_drafts.sql."
+        "sql": "tabela public.backlog_task_attachments (org_id, task_id fk cascade, feedback_id fk nullable, path, filename, mime, size_bytes, deleted_at). Anexos de draft ficam com task_id nulo/draft até a re-vinculação. Migrations 0021_backlog_attachments.sql + 0022_backlog_attachment_drafts.sql."
       }
     },
     {
@@ -226,7 +227,7 @@
       "id": "RULE-017",
       "since": "1.2.0",
       "title": "Tela principal: abas, filtros, tabela, board, ação em massa, menu de contexto",
-      "layer1": "TOPO: título do módulo + ação 'Sprints' (abre o drawer de sprints) + ação 'Nova task' (abre o drawer de criação). ABAS (tabs, 1 por status na ordem Árvore · Backlog · Teste · Entregue · Finalizadas), cada uma com CONTADOR calculado sobre o conjunto COMPLETO (não o filtrado) pra os números ficarem estáveis. Clicar liga o filtro daquele status; clicar de novo desliga (toggle). 'Finalizadas' é só leitura (RULE-012). BARRA DE FILTROS (todos aplicados no CLIENT; persistidos em localStorage sob chave versionada, EXCETO a busca que começa vazia a cada sessão): busca por texto (casa em título/código/descrição, ignorando HTML); dropdown Tipo (Todos os tipos / Bugs / Features / Melhorias); dropdown Módulo (Todos + os 11 módulos, buscável); dropdown Subtasks (Com e sem / Só com / Sem); dropdown Sprint (Todas + sprints VIVAS — open/in_progress/testing — com o status na descrição); dropdown Ordenar (Prioridade alta→baixa [default] / baixa→alta / Mais recente / Mais antiga; desempate alfabético por título); toggle de visão Lista/Board; toggle 'Agrupar por módulo' (só na visão Lista); botão 'Limpar' (aparece só quando há filtro ativo); contador 'N tasks' (do conjunto filtrado). NÃO existe dropdown de status (as abas cumprem esse papel — RULE-013). TABELA (visão Lista), colunas na ordem: [checkbox de seleção] · Título (com um indicador/flag quando a task tem test_feedback e está em ready/maturing = 'reprovada, aguardando reataque') · Sprint (chip com o código da sprint, ou travessão) · Tipo (badge) · Módulo (badge) · Status (badge) · Prioridade (badge) · Subtasks (entregues/total, ou travessão) · Criada (data relativa: agora / N min / Nh / Nd / data curta). Comportamento da linha: clicar abre a task (drawer); botão direito abre o menu de contexto. Cabeçalho tem checkbox 'selecionar todas' com estado indeterminado. 'Agrupar por módulo' insere linhas-seção (nome do módulo + contagem) agrupando as tasks. BOARD (visão Board): uma coluna por aba (INCLUI 'Finalizadas'), cabeçalho com nome + contagem, cards clicáveis (badges de tipo e prioridade, título, subtasks entregues/total, data). NÃO há drag-and-drop — clicar no card abre a task. MENU DE CONTEXTO (botão direito numa linha): Editar · Duplicar · (sep) · 'Mover pra <status>' para cada um dos 4 status selecionáveis DIFERENTES do atual (NUNCA finalizado) · (sep) · Excluir (danger). BARRA DE AÇÃO EM MASSA (flutua no rodapé quando ≥1 task selecionada): contagem · 'Mover pra' (os 4 status, SEM finalizado) · 'Adicionar à sprint' (só se existe sprint aberta) · 'Criar sprint' · 'Excluir' (danger) · botão de limpar seleção. ESTADOS: carregando (spinner); erro (alerta com botão 'tentar de novo'); vazio (ilustração + título/corpo + CTA contextual — 'criar primeira task' quando sem filtro, 'limpar filtros' quando há filtro).",
+      "layer1": "TOPO: título do módulo + ação 'Sprints' (abre o drawer de sprints) + ação 'Nova task' (abre o drawer de criação). ABAS (tabs, 1 por status na ordem Árvore · Backlog · Teste · Entregue · Finalizadas), cada uma com CONTADOR calculado sobre o conjunto COMPLETO (não o filtrado) pra os números ficarem estáveis. Clicar liga o filtro daquele status; clicar de novo desliga (toggle). 'Finalizadas' é só leitura (RULE-012). BARRA DE FILTROS (todos aplicados no CLIENT; persistidos em localStorage sob chave versionada, EXCETO a busca que começa vazia a cada sessão): busca por texto (casa em título/código/descrição, ignorando HTML); dropdown Tipo (Todos os tipos / Bugs / Features / Melhorias); dropdown Módulo (Todos + os 11 módulos, buscável); dropdown Subtasks (Com e sem / Só com / Sem); dropdown Sprint (Todas + sprints VIVAS — open/in_progress/testing — com o status na descrição); dropdown Ordenar (Prioridade alta→baixa [default] / baixa→alta / Mais recente / Mais antiga; desempate alfabético por título); toggle de visão Lista/Board; toggle 'Agrupar por módulo' (só na visão Lista); botão 'Limpar' (aparece só quando há filtro ativo); contador 'N tasks' (do conjunto filtrado). NÃO existe dropdown de status (as abas cumprem esse papel — RULE-013). TABELA (visão Lista), colunas na ordem: [checkbox de seleção] · Título (com um indicador/flag quando a task tem test_feedback e está em ready/maturing = 'reprovada, aguardando reataque') · Sprint (chip com o código da sprint, ou travessão) · Tipo (badge) · Módulo (badge) · Status (badge) · Prioridade (badge) · Subtasks (entregues/total, ou travessão) · Criada (data relativa: agora / N min / Nh / Nd / data curta). Comportamento da linha: clicar abre a task (drawer); botão direito abre o menu de contexto. Cabeçalho tem checkbox 'selecionar todas' com estado indeterminado. 'Agrupar por módulo' insere linhas-seção (nome do módulo + contagem) agrupando as tasks. BOARD (visão Board): uma coluna por aba (INCLUI 'Finalizadas'), cabeçalho com nome + contagem, cards clicáveis (badges de tipo e prioridade, título, subtasks entregues/total, data). NÃO há drag-and-drop — clicar no card abre a task. MENU DE CONTEXTO (botão direito numa linha): Editar · Duplicar · (sep) · 'Mover pra <status>' para cada um dos 4 status selecionáveis DIFERENTES do atual (NUNCA finalizado) · (sep) · Excluir (danger). BARRA DE AÇÃO EM MASSA (flutua no rodapé quando ≥1 task selecionada): contagem · 'Mover pra' (os 4 status, SEM finalizado) · 'Adicionar à sprint' (só se existe sprint aberta) · 'Criar sprint' · 'Excluir' (danger) · botão de limpar seleção. ESCOPO DA SELEÇÃO = SÓ O VISÍVEL (INVIOLÁVEL): a seleção em massa só pode atingir as tasks ATUALMENTE visíveis (após abas/filtros/busca). Ao trocar de aba, mudar um filtro ou a busca, a seleção é PODADA — qualquer id que saiu de vista é removido da seleção automaticamente. Proíbe o caso perigoso 'selecionei tudo em uma aba ampla, troquei de aba/filtro e a ação atingiu tasks que eu nem via'. A ação em massa SEMPRE opera sobre o conjunto filtrado corrente, nunca sobre tasks fora de vista. ESTADOS: carregando (spinner); erro (alerta com botão 'tentar de novo'); vazio (ilustração + título/corpo + CTA contextual — 'criar primeira task' quando sem filtro, 'limpar filtros' quando há filtro).",
       "layer2": {
         "paths": [
           "frontend/src/pages/backlog/BacklogList.tsx (STATUS_TABS=abas; STATUS_GROUPS=destinos selecionáveis; TYPE_OPTIONS/MODULE_OPTIONS/SUBTASK_OPTIONS/ORDER_OPTIONS; sprintOptions=sprints vivas; renderRow=colunas da tabela; bl-kanban=board; buildCtxItems=menu de contexto; bl-bulkbar=ação em massa; LS_KEY + loadFilters/saveFilters + LEGACY_ORDER; stats sobre allTasks)"
@@ -314,6 +315,37 @@
           "CLAUDE.md (Arquitetura de CSS 3 camadas + catálogo de componentes globais + guard-rails stylelint/eslint)"
         ],
         "sql": "—"
+      }
+    },
+    {
+      "id": "RULE-024",
+      "since": "1.4.0",
+      "title": "Atalhos globais do Jira + deep-link pela busca/command-palette",
+      "layer1": "O módulo Jira é alcançável de QUALQUER rota do sistema por atalhos de teclado globais e pela busca/command-palette — não exige estar na tela do Jira. ATALHOS (só disparam quando o foco NÃO está num campo editável — input/textarea/select/contenteditable —, exceto o command-palette que tem precedência absoluta mesmo dentro de input): (a) tecla 'n' → abre o DRAWER de criação de task do Jira sobreposto na rota atual (o módulo default do form = o módulo da rota onde foi disparado, RULE-016); (b) tecla 'j' → abre um DRAWER read-only 'Prontas no Jira' que lista as tasks em status 'Backlog' (ready) ordenadas por prioridade (consulta rápida; clicar leva pro Jira) — é só leitura, não edita nem move nada; (c) Cmd/Ctrl+K → abre o COMMAND-PALETTE, que INDEXA as tasks e sprints do Jira (busca real por código/título, não só navegação). DEEP-LINK: selecionar uma task no palette navega pra rota do Jira com '?task=<id>' e selecionar 'sprints' navega com '?sprints=1'; a tela do Jira consome esses query params na montagem — '?task=<id>' abre o drawer daquela task, '?sprints=1' abre o drawer de Sprints — e LIMPA o param da URL (replace) após consumir. B e C mapeiam as TECLAS/superfícies pro próprio padrão de atalho/command-palette do seu sistema; o CONTEÚDO normativo é: criar e consultar o Jira de qualquer lugar, e poder abrir uma task/sprint específica por link. (As demais teclas globais de navegação entre módulos — chord 'g'+letra etc. — são do sistema-A, não do contrato do módulo Jira.)",
+      "layer2": {
+        "paths": [
+          "frontend/src/hooks/useGlobalShortcuts.ts (onOpenPalette/onNewTask/onQuickList; 'n'/'j'/Cmd+K; isEditable ignora campos)",
+          "frontend/src/components/layout/GlobalCreateTaskDrawer.tsx (drawer de criação global; evento window 'nexus:backlog-new')",
+          "frontend/src/components/layout/QuickJiraListDrawer.tsx ('Prontas no Jira', useBacklogTasks({status:'ready'}), read-only)",
+          "frontend/src/components/ui/CommandPalette.tsx (indexa tasks+sprints; navigate('/app/jira?task='+id) e '/app/jira?sprints=1')",
+          "frontend/src/pages/backlog/BacklogList.tsx (useSearchParams: consome ?task=/?sprints= e dá setSearchParams({}, {replace:true}))"
+        ],
+        "sql": "—"
+      }
+    },
+    {
+      "id": "RULE-025",
+      "since": "1.4.0",
+      "title": "Histórico de auditoria + desfazer (restaurar estado anterior)",
+      "layer1": "Toda mudança nas entidades do módulo (task, subtask, sprint) é registrada num LOG DE AUDITORIA imutável, alimentado por gatilho no banco (não pela aplicação) — captura insert/update/delete com snapshot do estado ANTES (old_data) e DEPOIS (new_data). Existe pra responder 'o que mudou e quando' e, principalmente, pra DESFAZER: um bulk acidental (ex: mover tudo pra 'Entregue' sem querer) tem que ser reversível. UI: um DRAWER 'Histórico' (aberto por ação no topo da lista; e o mesmo histórico, filtrado por aquela task, aparece como seção 'Histórico de auditorias' no drawer da task — RULE-016) lista as entradas em ordem cronológica reversa, cada uma com: rótulo da ação (Criada/Editada/Excluída/Restaurada), código+título da entidade, o tempo relativo, e o DIFF dos campos relevantes (status/prioridade/tipo/título/módulo) no formato 'de → para' (valores traduzidos pros rótulos pt-BR canônicos). Entradas de UPDATE de task oferecem um botão 'Restaurar' que reaplica o old_data daquela entrada (volta status e demais campos ao snapshot anterior; pode inclusive 'des-deletar' restaurando deleted_at). GUARDAS INVIOLÁVEIS: (1) a restauração NUNCA volta uma task pro estado 'finalizado' (terminal — RULE-012); a API rejeita. (2) restauração só de task por ora (insert não tem estado anterior pra restaurar). Após restaurar, o status da sprint é ressincronizado (RULE-005). Acesso só de funcionário, escopado por org (RULE-007). B e C mapeiam o drawer/lista pro próprio DS; o CONTEÚDO normativo é: log imutável com snapshot, visualização do diff, e desfazer que respeita as guardas de finalizado.",
+      "layer2": {
+        "paths": [
+          "backend/src/routes/backlog.ts (GET /api/backlog/history; POST /api/backlog/history/:auditId/restore; AUDIT_TABLES, RESTORE_FIELDS, DIFF_FIELDS; rejeita old.status==='finalizado'; chama syncSprintStatus pós-restore)",
+          "frontend/src/pages/backlog/HistoryDrawer.tsx (lista + diff 'de→para' + botão Restaurar; confirm antes de restaurar)",
+          "frontend/src/lib/queries/backlog.ts (useBacklogHistory/useRestoreHistory; AUDIT_ACTION_LABEL/TONE; HistoryEntry/HistoryChange)",
+          "frontend/src/pages/backlog/BacklogList.tsx (ação 'Histórico' no topo + render do HistoryDrawer)"
+        ],
+        "sql": "tabela genérica public.audit_log (org_id, table_name, record_id, action, old_data jsonb, new_data jsonb, changed_at) + função public.log_audit_change(). Gatilhos AFTER INSERT/UPDATE/DELETE em public.backlog_tasks, public.backlog_subtasks, public.backlog_sprints. Migration 0026_backlog_audit.sql."
       }
     }
   ]

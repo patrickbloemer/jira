@@ -8,7 +8,7 @@
 > **Camada 1** = declarativa (aqui). **Camada 2** = referência de implementação
 > (paths + SQL do Sistema A: Nexus), dentro de cada regra no `registry.json`.
 
-- **Versão:** 1.3.0
+- **Versão:** 1.4.0
 - **Sistema A (referência):** Nexus — `github.com/patrickbloemer/nexus`
 - **Prefixo DB:** `backlog_` · **Label UI:** "Jira"
 
@@ -113,6 +113,28 @@ visual e comportamental é requisito obrigatório, não recomendação. Governa 
 todas as outras regras de UI deste doc são implementadas.
 → RULE-023
 
+## 14. Atalhos globais + deep-link
+
+O Jira é alcançável de qualquer rota: tecla `n` abre o drawer de criação de task
+sobreposto; tecla `j` abre uma lista read-only "Prontas no Jira" (status `ready`);
+`Cmd/Ctrl+K` abre o command-palette que indexa tasks/sprints e faz deep-link
+(`?task=<id>` abre a task, `?sprints=1` abre o drawer de sprints — a tela consome e
+limpa o param). Atalhos ignoram campos editáveis (exceto o palette). B/C mapeiam as
+teclas/superfícies pro próprio padrão; o conteúdo normativo é criar/consultar/abrir o
+Jira de qualquer lugar.
+→ RULE-024
+
+## 15. Histórico de auditoria + desfazer
+
+Toda mudança em task/subtask/sprint vira uma linha imutável num log de auditoria
+(gatilho no banco, com snapshot antes/depois). Um drawer "Histórico" mostra as entradas
+em ordem reversa com o diff `de → para` dos campos relevantes; updates de task têm botão
+**Restaurar** que reaplica o snapshot anterior (inclusive des-deletar). Guardas
+invioláveis: nunca restaura pro estado `finalizado` (RULE-012); pós-restauração
+ressincroniza o status da sprint (RULE-005). Existe pra tornar reversível um bulk
+acidental.
+→ RULE-025
+
 ---
 
 ## Índice de regras (registry.json)
@@ -142,3 +164,5 @@ todas as outras regras de UI deste doc são implementadas.
 | RULE-021 | 1.3.0 | Path do sistema discreto sob o título da tela            |
 | RULE-022 | 1.3.0 | Motion obrigatório em toda transição (via DS)            |
 | RULE-023 | 1.3.0 | Aderência ao Design System (regra obrigatória)           |
+| RULE-024 | 1.4.0 | Atalhos globais do Jira + deep-link (palette / n / j)    |
+| RULE-025 | 1.4.0 | Histórico de auditoria + desfazer (restaurar estado)     |
