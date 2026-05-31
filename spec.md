@@ -13,7 +13,7 @@
 > de acesso — **não entra como regra**; é decisão de cada sistema. O `org_id`/RLS que
 > aparece na **camada 2** é só referência da implementação do Nexus.
 
-- **Versão:** 1.6.0
+- **Versão:** 2.0.0
 - **Sistema A (referência):** Nexus — `github.com/patrickbloemer/nexus`
 - **Prefixo DB:** `backlog_` · **Label UI:** "Jira"
 
@@ -142,6 +142,30 @@ ressincroniza o status da sprint (RULE-005). Existe pra tornar reversível um bu
 acidental.
 → RULE-025
 
+## 16. Mapa de posição (layout normativo) — arranjo ≠ estética
+
+A partir de 2.0.0 o doc fixa **onde** os componentes aparecem e **como** se arranjam
+entre si — separado da **estética** (aparência), que segue o DS de cada sistema. Regra
+de ouro: _"o componente você serve do jeito do seu DS — 100% sua estética —, mas o
+posicionamento/arranjo é este."_ Medidas em px na camada 2 são referência do Nexus, não
+obrigatórias; o normativo é a relação (em linha / empilhado / ancorado / compacto).
+
+**Tela principal** — pilha vertical: cabeçalho (título+path à esquerda, ações
+[Histórico][Sprints][Nova task] à direita) → faixa de abas (contêiner único, segmentos
+de largura igual) → **barra de filtros = UMA faixa horizontal compacta, controles em
+linha auto-width** (busca·Tipo·Módulo·Subtasks·Sprint·Ordenar, e Lista/Board·Agrupar·
+Limpar·contador ancorados à direita) — **nunca cada filtro full-width empilhado** →
+conteúdo (tabela de largura total / board em N colunas) → barra de ação em massa
+flutuante, centrada na área de conteúdo.
+
+**Drawer** — colado numa borda (direita em A), full-height, três regiões empilhadas:
+**header concentrado** (cluster esquerdo = identidade [código + badges Tipo/Módulo/
+Prioridade]; cluster direito = **kebab ⋯ + X**, com Duplicar/Sprint/**Excluir dentro do
+kebab** — destrutivo nunca solto) → corpo em coluna única, campos empilhados na ordem
+fixa de RULE-016 (sem componentes espalhados ao acaso) → rodapé (metadados à esquerda,
+[Cancelar][Salvar] à direita). **Modais** são centrados (não deslizam de borda).
+→ RULE-026, RULE-027
+
 ---
 
 ## Índice de regras (registry.json)
@@ -172,3 +196,5 @@ acidental.
 | RULE-023 | 1.3.0 | Aderência ao Design System (regra obrigatória)           |
 | RULE-024 | 1.4.0 | Atalhos globais do Jira + deep-link (palette / n / j)    |
 | RULE-025 | 1.4.0 | Histórico de auditoria + desfazer (restaurar estado)     |
+| RULE-026 | 2.0.0 | Mapa de posição: princípio + tela principal              |
+| RULE-027 | 2.0.0 | Mapa de posição: anatomia do drawer + modais             |
