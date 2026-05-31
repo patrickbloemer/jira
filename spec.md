@@ -13,7 +13,7 @@
 > de acesso — **não entra como regra**; é decisão de cada sistema. O `org_id`/RLS que
 > aparece na **camada 2** é só referência da implementação do Nexus.
 
-- **Versão:** 2.0.0
+- **Versão:** 2.1.0
 - **Sistema A (referência):** Nexus — `github.com/patrickbloemer/nexus`
 - **Prefixo DB:** `backlog_` · **Label UI:** "Jira"
 
@@ -79,7 +79,10 @@ assim" — cada sistema mapeia pro próprio componente.
 ## 8. Anatomia da task
 
 Catálogo normativo dos campos da task — quais existem, em que ordem aparecem, quais são
-obrigatórios, quais são legados (não exibir). Mesma anatomia em A/B/C.
+obrigatórios, quais são legados (não exibir). Mesma anatomia em A/B/C. As pílulas de
+**Status** mudam por contexto (2.1.0): na **criação** o conjunto é só `maturing/ready/
+testing` (delivered e finalizado ausentes — não se cria task já-entregue); na **edição**
+entra `delivered` (selecionável só pelo usuário, RULE-012); `finalizado` nunca é pílula.
 → RULE-016
 
 ## 9. Tela principal (abas / filtros / tabela / board)
