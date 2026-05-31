@@ -154,16 +154,16 @@ obrigatórias; o normativo é a relação (em linha / empilhado / ancorado / com
 [Histórico][Sprints][Nova task] à direita) → faixa de abas (contêiner único, segmentos
 de largura igual) → **barra de filtros = UMA faixa horizontal compacta, controles em
 linha auto-width** (busca·Tipo·Módulo·Subtasks·Sprint·Ordenar, e Lista/Board·Agrupar·
-Limpar·contador ancorados à direita) — **nunca cada filtro full-width empilhado** →
-conteúdo (tabela de largura total / board em N colunas) → barra de ação em massa
-flutuante, centrada na área de conteúdo.
+Limpar·contador ancorados à direita); é uma toolbar compacta, não uma coluna de campos
+full-width → conteúdo (tabela de largura total / board em N colunas) → barra de ação em
+massa flutuante, centrada na área de conteúdo.
 
 **Drawer** — colado numa borda (direita em A), full-height, três regiões empilhadas:
 **header concentrado** (cluster esquerdo = identidade [código + badges Tipo/Módulo/
 Prioridade]; cluster direito = **kebab ⋯ + X**, com Duplicar/Sprint/**Excluir dentro do
 kebab** — destrutivo nunca solto) → corpo em coluna única, campos empilhados na ordem
-fixa de RULE-016 (sem componentes espalhados ao acaso) → rodapé (metadados à esquerda,
-[Cancelar][Salvar] à direita). **Modais** são centrados (não deslizam de borda).
+fixa de RULE-016 → rodapé (metadados à esquerda, [Cancelar][Salvar] à direita).
+**Modais** são centrados (não deslizam de borda).
 → RULE-026, RULE-027
 
 ---
