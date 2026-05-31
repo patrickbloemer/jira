@@ -13,7 +13,7 @@
 > de acesso — **não entra como regra**; é decisão de cada sistema. O `org_id`/RLS que
 > aparece na **camada 2** é só referência da implementação do Nexus.
 
-- **Versão:** 2.3.0
+- **Versão:** 2.4.0
 - **Sistema A (referência):** Nexus — `github.com/patrickbloemer/nexus`
 - **Prefixo DB:** `backlog_` · **Label UI:** "Jira"
 
@@ -73,7 +73,10 @@ Criar/editar entidade (task, sprint) acontece em **drawer** (painel lateral, dir
 confirmação destrutiva e escolha rápida (criar sprint, adicionar à sprint, descartar
 mudanças) acontece em **modal** (centrado, foco preso, ESC/backdrop fecham). Descrição
 agnóstica de DS: "isto é um drawer e se comporta assim" / "isto é um modal e se comporta
-assim" — cada sistema mapeia pro próprio componente.
+assim" — cada sistema mapeia pro próprio componente. **Foco + Enter no confirm (2.4.0):**
+o modal de confirmação foca o botão da ação principal ao abrir e Enter confirma (idêntico
+ao clique); ESC/Cancelar/overlay cancelam; o Enter é ignorado em campo de texto ou botão
+focado (sem atropelar digitação nem disparar 2x). Vale pra toda confirmação do produto.
 → RULE-014, RULE-015
 
 ## 8. Anatomia da task
