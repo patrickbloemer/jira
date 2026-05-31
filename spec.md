@@ -13,7 +13,7 @@
 > de acesso — **não entra como regra**; é decisão de cada sistema. O `org_id`/RLS que
 > aparece na **camada 2** é só referência da implementação do Nexus.
 
-- **Versão:** 2.4.0
+- **Versão:** 2.4.1
 - **Sistema A (referência):** Nexus — `github.com/patrickbloemer/nexus`
 - **Prefixo DB:** `backlog_` · **Label UI:** "Jira"
 
@@ -112,7 +112,10 @@ Status é dirigido **só** pelas abas — sem dropdown de status no filtro.
 
 Drawer de sprints master→detalhe + modais de criar/adicionar; seletores em pílula
 (Tipo/Status/Prioridade) como toggle de seleção única; subtask de 1 nível e ciclo de
-feedback de teste imutável renderizado na UI (com evidência em lightbox).
+feedback de teste imutável renderizado na UI (com evidência em lightbox). **Progresso
+(2.4.1):** nos indicadores de conclusão da sprint (barra/contagem do card, contador do
+detalhe, risco/is-done da task) uma task conta como entregue quando está `delivered` **ou**
+`finalizado` — mesmo balde da RULE-005; abaixo de delivered não conta.
 → RULE-018, RULE-019, RULE-020
 
 ## 11. Localização (path do sistema)
