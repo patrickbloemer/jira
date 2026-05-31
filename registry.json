@@ -1,6 +1,6 @@
 {
   "module": "jira",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Fonte de verdade (doc canônico) do módulo Jira (backlog interno). Sistema A de referência: Nexus (github.com/patrickbloemer/nexus). Cada regra tem camada 1 (declarativa, agnóstica de implementação) e camada 2 (referência: paths + SQL do Sistema A).",
   "systems": {
     "A": {
@@ -170,10 +170,10 @@
       "id": "RULE-013",
       "since": "1.1.0",
       "title": "Lista: busca tudo + filtra no client + filtros persistidos",
-      "layer1": "A tela de lista busca TODAS as tasks (sem filtro de módulo) do servidor e filtra/ordena no client. As contagens das abas de status são calculadas sobre o conjunto COMPLETO (não o filtrado), pra os números ficarem estáveis. O filtro por status é EXCLUSIVO das abas do topo (clicar numa aba liga/desliga o filtro daquele status — toggle); NÃO existe um dropdown separado de 'status' (seria redundante com as abas). Os demais filtros (tipo/módulo/subtask/sprint/ordenação) continuam em selects. Filtros são persistidos em localStorage sob chave versionada, com migração de valores legados (ex: ordenação antiga ice_desc → priority_desc).",
+      "layer1": "A tela de lista busca TODAS as tasks (sem filtro de módulo) do servidor e filtra/ordena no client. As contagens das abas de status são calculadas sobre o conjunto COMPLETO (não o filtrado), pra os números ficarem estáveis. O filtro por status é EXCLUSIVO das abas do topo (clicar numa aba liga/desliga o filtro daquele status — toggle); NÃO existe um dropdown separado de 'status' (seria redundante com as abas). Os demais filtros (tipo/módulo/subtask/sprint/ordenação) continuam em selects; o filtro de sprint é um select que lista as sprints VIVAS (open/in_progress/testing) + 'Todas as sprints' como default, filtrando a lista pela sprint a que a task pertence. AGRUPAR POR MÓDULO (since 1.5.0): um toggle SÓ-na-view-de-lista (não vale no board) que reorganiza as tasks em seções por módulo, cada seção com uma linha-cabeçalho; o estado do toggle é persistido junto dos demais filtros. Filtros são persistidos em localStorage sob chave versionada, com migração de valores legados (ex: ordenação antiga ice_desc → priority_desc).",
       "layer2": {
         "paths": [
-          "frontend/src/pages/backlog/BacklogList.tsx (stats sobre allTasks; chave localStorage versionada; STATUS_TABS renderiza as abas; o Select de status foi removido)",
+          "frontend/src/pages/backlog/BacklogList.tsx (stats sobre allTasks; chave localStorage versionada; STATUS_TABS renderiza as abas; o Select de status foi removido; sprintOptions monta o select só com sprints vivas; groupByModule monta seções por módulo na ordem de MODULE_LABEL, só na view 'list')",
           "frontend/src/lib/queries/backlog.ts (buildQuery encaminha só search/type/status/order)"
         ],
         "sql": "—"

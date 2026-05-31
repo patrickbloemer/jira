@@ -8,7 +8,7 @@
 > **Camada 1** = declarativa (aqui). **Camada 2** = referência de implementação
 > (paths + SQL do Sistema A: Nexus), dentro de cada regra no `registry.json`.
 
-- **Versão:** 1.4.0
+- **Versão:** 1.5.0
 - **Sistema A (referência):** Nexus — `github.com/patrickbloemer/nexus`
 - **Prefixo DB:** `backlog_` · **Label UI:** "Jira"
 
@@ -49,8 +49,9 @@ Rotas sob `/api/backlog`, só funcionário, `org_id` do token.
 
 ## 5. Tela lista/board + drawers
 
-Busca tudo + filtra no client; abas com contagem; drawer de task com dirty-guard;
-drawer de sprints master/detail.
+Busca tudo + filtra no client; abas com contagem; filtro de sprint lista só sprints
+vivas; toggle "agrupar por módulo" (só na lista) com cabeçalho por seção; drawer de
+task com dirty-guard; drawer de sprints master/detail.
 → RULE-013
 
 ## 6. Regras invioláveis de agente
