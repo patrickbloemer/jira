@@ -1,6 +1,6 @@
 {
   "module": "jira",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "Fonte de verdade (doc canônico) do módulo Jira (backlog interno). Sistema A de referência: Nexus (github.com/patrickbloemer/nexus). Cada regra tem camada 1 (declarativa, agnóstica de implementação) e camada 2 (referência: paths + SQL do Sistema A).",
   "systems": {
     "A": {
@@ -18,7 +18,9 @@
       "title": "Código curto sequencial por org (TSK-NNN)",
       "layer1": "Toda task tem um código humano sequencial por organização no formato TSK-NNN (zero-pad 3, começa em 1 por org). É gerado automaticamente na criação — o cliente nunca envia o código. Serve de referência falada ('ataca a TSK-007'). Único por (org, code).",
       "layer2": {
-        "paths": ["backend/src/routes/backlog.ts (POST /api/backlog)"],
+        "paths": [
+          "backend/src/routes/backlog.ts (POST /api/backlog)"
+        ],
         "sql": "tabela auxiliar public.backlog_task_counters(org_id pk, next_num); função public.backlog_next_code(org_id) incrementa atômico e retorna 'TSK-'||lpad(n,3,'0'); trigger BEFORE INSERT public.backlog_tasks_set_code preenche quando code é null; unique index backlog_tasks_code_unique (org_id, code). Migration 0015_backlog_short_code.sql."
       }
     },
@@ -26,7 +28,7 @@
       "id": "RULE-002",
       "since": "1.0.0",
       "title": "Máquina de estados de status da task",
-      "layer1": "Status segue o ciclo: maturing (ideia crua) → ready (pronta p/ codar) → testing (implementada, em teste) → delivered (entregue, aprovada) → finalizado (entregue E registrada no doc canônico). De testing, reprovar volta pra ready; aprovar vai pra delivered. delivered_at é setado ao entrar em delivered e limpo ao sair. finalizado é terminal acima de delivered.",
+      "layer1": "Status segue o ciclo: maturing (ideia crua) → ready (pronta p/ codar) → testing (implementada, em teste) → delivered (entregue, aprovada) → finalizado (entregue E registrada no doc canônico). De testing, reprovar volta pra ready; aprovar vai pra delivered. delivered_at é setado ao entrar em delivered e limpo ao sair. finalizado é terminal acima de delivered. RÓTULOS pt-BR canônicos (idênticos entre os sistemas — são conteúdo, não estética, então B e C usam os MESMOS nomes): maturing='Árvore', ready='Backlog', testing='Teste', delivered='Entregue', finalizado='Finalizado'. Os VALORES internos (maturing/ready/...) nunca mudam; só o rótulo exibido é traduzido por esse mapa.",
       "layer2": {
         "paths": [
           "backend/src/routes/backlog.ts (statusEnum, PATCH /api/backlog/:id)",
@@ -41,7 +43,10 @@
       "title": "Plano de teste obrigatório ao mover pra testing",
       "layer1": "Ao mover uma task pra testing, test_notes deve conter as seções: O que testar / Como testar / Critério de aceite / O que foi mudado. Sem isso o validador (usuário) não consegue testar. test_notes é o conteúdo lido na validação.",
       "layer2": {
-        "paths": ["backend/src/routes/backlog.ts (campo test_notes no PATCH)", "frontend/src/pages/backlog/BacklogDrawer.tsx (textarea de plano de teste, destacado em testing)"],
+        "paths": [
+          "backend/src/routes/backlog.ts (campo test_notes no PATCH)",
+          "frontend/src/pages/backlog/BacklogDrawer.tsx (textarea de plano de teste, destacado em testing)"
+        ],
         "sql": "coluna backlog_tasks.test_notes text. Migration 0013_backlog_test_notes.sql."
       }
     },
@@ -51,7 +56,9 @@
       "title": "Ciclo de feedback de teste (imutável)",
       "layer1": "Quando a task está em testing, o usuário aprova ou reprova. Cada decisão grava uma linha imutável de auditoria. reject → status volta pra ready (retrabalho) e registra o motivo; approve → status vai pra delivered. Entradas antigas nunca são editadas — sempre uma caixa nova. test_feedback guarda a última reprovação (indicador na lista).",
       "layer2": {
-        "paths": ["backend/src/routes/backlog.ts (POST /api/backlog/:id/feedback; reject→'ready', approve→'delivered')"],
+        "paths": [
+          "backend/src/routes/backlog.ts (POST /api/backlog/:id/feedback; reject→'ready', approve→'delivered')"
+        ],
         "sql": "tabela public.backlog_task_feedback (id, org_id, task_id, body, created_at, created_by) — append-only. Coluna backlog_tasks.test_feedback. Migrations 0014_backlog_module_feedback.sql + 0017_backlog_feedback_history.sql."
       }
     },
@@ -61,7 +68,10 @@
       "title": "Status da sprint é derivado das tasks",
       "layer1": "O status da sprint nunca é setado à mão de forma independente — é derivado das tasks que ela contém, sempre que uma task muda de status: todas entregues (delivered OU finalizado) → sprint delivered; todas em (testing/delivered/finalizado) → testing; alguma já saiu do 'a fazer' → in_progress; senão → open. finalizado conta no mesmo balde de delivered. NÃO existe status 'closed'.",
       "layer2": {
-        "paths": ["backend/src/routes/backlog.ts (syncSprintStatus, chamado em PATCH e feedback)", "scripts/db.sh (comando sync-sprints, p/ escrita direta no banco)"],
+        "paths": [
+          "backend/src/routes/backlog.ts (syncSprintStatus, chamado em PATCH e feedback)",
+          "scripts/db.sh (comando sync-sprints, p/ escrita direta no banco)"
+        ],
         "sql": "enum implícito de status da sprint: open|in_progress|testing|delivered. syncSprintStatus: allDelivered = every in (delivered,finalizado); allTested = every in (testing,delivered,finalizado); anyActive = some in (testing,delivered,finalizado)."
       }
     },
@@ -71,7 +81,9 @@
       "title": "Soft delete em tudo",
       "layer1": "Nada é apagado fisicamente. Toda tabela do módulo tem deleted_at timestamptz; 'excluir' seta deleted_at. Toda query filtra deleted_at IS NULL. Vale p/ task, subtask, sprint, anexo.",
       "layer2": {
-        "paths": ["backend/src/routes/backlog.ts (DELETE endpoints setam deleted_at)"],
+        "paths": [
+          "backend/src/routes/backlog.ts (DELETE endpoints setam deleted_at)"
+        ],
         "sql": "coluna deleted_at em backlog_tasks, backlog_subtasks, backlog_sprints, backlog_task_attachments; índices parciais WHERE deleted_at IS NULL."
       }
     },
@@ -81,7 +93,10 @@
       "title": "Multi-tenant + acesso só de funcionário",
       "layer1": "Módulo interno: só funcionário (owner/employee) acessa; cliente nunca vê o backlog. org_id vem SEMPRE do token (JWT), nunca do corpo da requisição. RLS no banco gateia por org + papel; o backend ainda filtra org_id em toda query (defesa em profundidade).",
       "layer2": {
-        "paths": ["backend/src/routes/backlog.ts (toda rota exige funcionário + filtra org_id)", "backend/src/lib/auth.ts (JWKS/RS256)"],
+        "paths": [
+          "backend/src/routes/backlog.ts (toda rota exige funcionário + filtra org_id)",
+          "backend/src/lib/auth.ts (JWKS/RS256)"
+        ],
         "sql": "RLS policies backlog_*_employee_all usando public.has_org_access(org_id) AND public.is_employee(). Migration 0012_backlog.sql."
       }
     },
@@ -91,7 +106,10 @@
       "title": "Prioridade simples (baixa/media/alta) + priority_rank",
       "layer1": "Priorização é baixa | media | alta (default media). priority_rank deriva pra ordenação server-side: baixa=1, media=2, alta=3. Ordenação padrão da lista é priority_desc, com created_at desc como desempate. (ICE — impact/confidence/ease — é LEGADO; usar só priority.)",
       "layer2": {
-        "paths": ["backend/src/routes/backlog.ts (priorityEnum, order=priority_desc|priority_asc|created_desc|created_asc)", "frontend/src/lib/queries/backlog.ts (PRIORITY_RANK)"],
+        "paths": [
+          "backend/src/routes/backlog.ts (priorityEnum, order=priority_desc|priority_asc|created_desc|created_asc)",
+          "frontend/src/lib/queries/backlog.ts (PRIORITY_RANK)"
+        ],
         "sql": "colunas backlog_tasks.priority (enum baixa/media/alta) e priority_rank (derivada). Colunas legadas impact/confidence/ease/ice_score ainda existem mas não são usadas pela UI."
       }
     },
@@ -101,7 +119,9 @@
       "title": "Sprint: code SPR-NNN, name=code, criação transacional",
       "layer1": "Sprint agrupa tasks (N:N). Tem code sequencial por org (SPR-NNN); o name É o próprio code. Criação é transacional (gera code, usa como name, vincula todas as task_ids num call). Remover o vínculo de uma task NÃO apaga a task — só desassocia. Excluir a sprint (soft delete) não afeta as tasks.",
       "layer2": {
-        "paths": ["backend/src/routes/backlog.ts (POST /api/backlog/sprint, DELETE .../tasks/:taskId)"],
+        "paths": [
+          "backend/src/routes/backlog.ts (POST /api/backlog/sprint, DELETE .../tasks/:taskId)"
+        ],
         "sql": "tabelas public.backlog_sprints e join public.backlog_sprint_tasks (pk composta sprint_id+task_id). RPC transacional public.backlog_create_sprint. Migrations 0016_backlog_sprints.sql + 0018_sprint_name_is_code.sql."
       }
     },
@@ -111,7 +131,9 @@
       "title": "Subtasks de 1 nível",
       "layer1": "Task pode ter subtasks (1 nível só, sem aninhamento). Cada subtask tem título, descrição, status (mesmo enum da task) e position (ordem). Nova subtask entra em max(position)+1. Soft delete.",
       "layer2": {
-        "paths": ["backend/src/routes/backlog.ts (POST/PATCH/DELETE /api/backlog/:id/subtasks)"],
+        "paths": [
+          "backend/src/routes/backlog.ts (POST/PATCH/DELETE /api/backlog/:id/subtasks)"
+        ],
         "sql": "tabela public.backlog_subtasks (task_id fk cascade, position int); índice (task_id, position) WHERE deleted_at IS NULL. Migration 0012_backlog.sql."
       }
     },
@@ -121,27 +143,176 @@
       "title": "Anexos: paste de imagem → upload (nunca base64 inline)",
       "layer1": "Task aceita anexos. Gesto principal: colar imagem (Ctrl+V) na descrição/plano de teste/feedback. O sistema NÃO embute base64 no HTML — intercepta o paste, faz upload pra storage privado e registra o arquivo como anexo numa galeria separada do texto. Bucket privado, path escopado por org (backlog/<org_id>/<task_id>/<uuid>.<ext>), servido por URL assinada (expira), nunca pública. feedback_id opcional amarra o anexo a uma reprovação específica (senão é anexo geral da task).",
       "layer2": {
-        "paths": ["backend/src/routes/backlog.ts (POST/DELETE /api/backlog/:id/attachments)", "frontend/src/lib/uploadWithProgress.ts", "frontend/src/components/ui/Lightbox.tsx"],
+        "paths": [
+          "backend/src/routes/backlog.ts (POST/DELETE /api/backlog/:id/attachments)",
+          "frontend/src/lib/uploadWithProgress.ts",
+          "frontend/src/components/ui/Lightbox.tsx"
+        ],
         "sql": "tabela public.backlog_task_attachments (org_id, task_id fk cascade, feedback_id fk nullable, path, filename, mime, size_bytes, deleted_at). Migrations 0021_backlog_attachments.sql + 0022_backlog_attachment_drafts.sql."
       }
     },
     {
       "id": "RULE-012",
-      "since": "1.0.0",
+      "since": "1.1.0",
       "title": "Regras invioláveis de agente (delivered / finalizado)",
-      "layer1": "Um agente automatizado NUNCA move uma task pra delivered — isso é exclusivo do usuário (botão Aprovar / edição manual). O agente transita só entre maturing, ready e testing. finalizado é exclusivo da 'sessão Finalizar': não é selecionável pela UI (não aparece nos pills/mover-para/filtro, só renderiza badge quando a task já está nele) e a API rejeita finalizado no POST/PATCH — a promoção delivered→finalizado é feita por escrita direta no banco. Marcar duplicata NÃO é entregar (soft delete ou campo duplicate_of, nunca delivered).",
+      "layer1": "Um agente automatizado NUNCA move uma task pra delivered — isso é exclusivo do usuário (botão Aprovar / edição manual). O agente transita só entre maturing, ready e testing. finalizado é exclusivo da 'sessão Finalizar': NÃO é selecionável como destino por ninguém na UI (não aparece nos pills do drawer, no 'mover-para' do menu de contexto, nem na barra de ação em massa) e a API rejeita finalizado no POST/PATCH — a promoção delivered→finalizado é feita só por escrita direta no banco. PORÉM finalizado É VISÍVEL em modo leitura: aparece como uma aba/filtro no topo da lista (depois de 'entregue') e como coluna no board, pra o usuário consultar o que já foi finalizado. Ver (read) ≠ selecionar (write): a aba filtra, nunca move. Marcar duplicata NÃO é entregar (soft delete ou campo duplicate_of, nunca delivered).",
       "layer2": {
-        "paths": ["CLAUDE.md (REGRAS INVIOLÁVEIS #1 e #1b)", "backend/src/routes/backlog.ts (statusEnum NÃO inclui 'finalizado' → PATCH/POST rejeitam)", "frontend/src/pages/backlog/BacklogDrawer.tsx (STATUSES) e BacklogList.tsx (STATUS_GROUPS/STATUS_OPTIONS) — finalizado ausente de propósito"],
-        "sql": "enum backlog_task_status inclui 'finalizado' (DB), mas a camada de API/UI restringe a seleção."
+        "paths": [
+          "CLAUDE.md (REGRAS INVIOLÁVEIS #1 e #1b)",
+          "backend/src/routes/backlog.ts (statusEnum NÃO inclui 'finalizado' → PATCH/POST rejeitam)",
+          "frontend/src/pages/backlog/BacklogDrawer.tsx (STATUSES) — finalizado ausente; BacklogList.tsx: STATUS_GROUPS = destinos selecionáveis (mover-para no menu + barra em massa, SEM finalizado) vs STATUS_TABS = STATUS_GROUPS + finalizado (abas do topo + colunas do board, só leitura)"
+        ],
+        "sql": "enum backlog_task_status inclui 'finalizado' (DB), mas a camada de API/UI restringe a seleção como destino — só permite visualizar."
       }
     },
     {
       "id": "RULE-013",
-      "since": "1.0.0",
+      "since": "1.1.0",
       "title": "Lista: busca tudo + filtra no client + filtros persistidos",
-      "layer1": "A tela de lista busca TODAS as tasks (sem filtro de módulo) do servidor e filtra/ordena no client. As contagens das abas de status são calculadas sobre o conjunto COMPLETO (não o filtrado), pra os números ficarem estáveis. Filtros são persistidos em localStorage sob chave versionada, com migração de valores legados (ex: ordenação antiga ice_desc → priority_desc).",
+      "layer1": "A tela de lista busca TODAS as tasks (sem filtro de módulo) do servidor e filtra/ordena no client. As contagens das abas de status são calculadas sobre o conjunto COMPLETO (não o filtrado), pra os números ficarem estáveis. O filtro por status é EXCLUSIVO das abas do topo (clicar numa aba liga/desliga o filtro daquele status — toggle); NÃO existe um dropdown separado de 'status' (seria redundante com as abas). Os demais filtros (tipo/módulo/subtask/sprint/ordenação) continuam em selects. Filtros são persistidos em localStorage sob chave versionada, com migração de valores legados (ex: ordenação antiga ice_desc → priority_desc).",
       "layer2": {
-        "paths": ["frontend/src/pages/backlog/BacklogList.tsx (stats sobre allTasks; chave localStorage versionada; STATUS_GROUPS)", "frontend/src/lib/queries/backlog.ts (buildQuery encaminha só search/type/status/order)"],
+        "paths": [
+          "frontend/src/pages/backlog/BacklogList.tsx (stats sobre allTasks; chave localStorage versionada; STATUS_TABS renderiza as abas; o Select de status foi removido)",
+          "frontend/src/lib/queries/backlog.ts (buildQuery encaminha só search/type/status/order)"
+        ],
+        "sql": "—"
+      }
+    },
+    {
+      "id": "RULE-014",
+      "since": "1.2.0",
+      "title": "Superfícies de UI: o que abre em DRAWER vs MODAL",
+      "layer1": "Há duas superfícies de sobreposição com papéis FIXOS — B e C devem mapear pros componentes equivalentes do próprio DS e respeitar a divisão de papéis. (A) DRAWER lateral = painel que desliza pela borda (direita no Sistema A), com overlay que escurece/desfoca levemente o fundo, trava o scroll do fundo, e fecha por ESC, clique no overlay, botão X do header ou botão Cancelar. (B) MODAL central = caixa pequena centralizada, fecha por ESC/overlay/Cancelar. REGRA DE PAPÉIS: editar/ver uma ENTIDADE = drawer; confirmar ou escolha rápida pontual = modal. Mapa concreto: criar task → drawer; editar task → drawer; editar subtask → drawer SECUNDÁRIO (empilha sobre o da task); painel de Sprints (lista+detalhe) → drawer; 'Criar sprint' → modal; 'Adicionar à sprint' → modal; toda confirmação destrutiva e o 'descartar alterações' → modal de confirmação (ver RULE-015). EMPILHAMENTO: drawer pode subir sobre drawer — abrir uma subtask abre um 2º drawer POR CIMA (o de baixo recua um pouco); ESC/overlay do de cima fecham só ele e voltam pro de baixo. Abrir uma task a partir do drawer de Sprints abre o drawer da task POR CIMA, e o de Sprints suspende seu próprio ESC/overlay enquanto a task está aberta. Um modal PODE ser disparado de dentro de um drawer (ex: menu ⋯ do header da task → 'Incluir em sprint').",
+      "layer2": {
+        "paths": [
+          "frontend/src/pages/backlog/BacklogDrawer.tsx (createPortal; .bl-portal/.bl-overlay/.bl-panel; variante .is-subtask; shifted recua o de baixo)",
+          "frontend/src/pages/backlog/SprintsDrawer.tsx (.is-sprints; prop suppressClose suspende ESC/overlay)",
+          "frontend/src/pages/backlog/DrawerChrome.tsx (DrawerHeader/DrawerFooter compartilhados)",
+          "frontend/src/pages/backlog/CreateSprintModal.tsx + AddToSprintModal.tsx (<Modal size='s'>)",
+          "frontend/src/pages/backlog/BacklogList.tsx (orquestra estados taskMode/subtaskState/sprintsDrawerOpen; passa suppressClose={taskOpen})"
+        ],
+        "sql": "—"
+      }
+    },
+    {
+      "id": "RULE-015",
+      "since": "1.2.0",
+      "title": "Confirmação destrutiva + guarda de descarte (dirty-guard)",
+      "layer1": "Toda ação destrutiva ou que perde trabalho exige confirmação EXPLÍCITA num modal de confirmação (título + mensagem + botão confirmar com tom 'danger' + botão cancelar). Casos obrigatórios: excluir task (mensagem avisa que as subtasks vão junto e que é soft delete/reversível), excluir subtask, excluir sprint (mensagem deixa claro que as TASKS não são afetadas — só o agrupamento some), excluir em massa (N tasks). DIRTY-GUARD: fechar um drawer de edição com alterações não salvas dispara um confirm 'Descartar mudanças?' antes de fechar — vale pra ESC, clique no overlay, X e Cancelar. SALVAR fecha direto, sem confirmar. 'Dirty' = qualquer campo difere do estado carregado do servidor; na CRIAÇÃO, dirty = título ou descrição preenchidos, ou algum anexo já staged. Como todo delete é soft (RULE-006), a mensagem sempre comunica que dá pra reverter.",
+      "layer2": {
+        "paths": [
+          "frontend/src/components/ui/Confirm.tsx (useConfirm() → confirm({title,message,confirmLabel,tone:'danger'}))",
+          "frontend/src/pages/backlog/BacklogDrawer.tsx (requestClose + dirtyRef no BacklogDrawer; EditSubtaskView.handleCancel)",
+          "frontend/src/pages/backlog/BacklogList.tsx (ctxDelete, bulkDelete)",
+          "frontend/src/pages/backlog/SprintsDrawer.tsx (SprintDetailView.handleDelete)"
+        ],
+        "sql": "—"
+      }
+    },
+    {
+      "id": "RULE-016",
+      "since": "1.2.0",
+      "title": "Anatomia da task: catálogo de campos, ordem e obrigatoriedade",
+      "layer1": "FORM DE CRIAÇÃO (drawer 'Nova task'), campos na ordem de cima pra baixo: (1) Tipo — pílulas seleção-única Melhoria/Feature/Bug, default Melhoria; (2) Título — input de texto, OBRIGATÓRIO (mín. 2 chars), recebe foco ao abrir, Enter cria a task; (3) Descrição — editor rich-text (colar print vira anexo, nunca base64 inline — RULE-011); (4) Anexos — galeria (colar Ctrl+V / arrastar / clicar); (5) Módulo — dropdown buscável, default = módulo da rota onde o atalho de criar foi disparado; (6) Status — pílulas, default 'Backlog' (ready), finalizado AUSENTE; (7) Prioridade — pílulas Baixa/Média/Alta, default Média. FORM DE EDIÇÃO (drawer da task) — header: código TSK-NNN (clique copia pro clipboard), ícone+badge de Tipo, badge de Módulo, badge de Prioridade, e menu ⋯ (Duplicar; opção de Sprint que é contextual: se já vinculada → 'Remover da SPR-NNN', senão se há sprint aberta → 'Incluir em sprint' (modal), senão → 'Adicionar à sprint' (modal de criar); Excluir). Corpo na ordem: Título, Módulo, Descrição, Anexos, Tipo, Status, Prioridade, Plano de teste, Histórico de auditorias, Feedback (só em testing), Subtasks. Footer: metadados (criada/atualizada e, se houver, entregue em <data>) + Cancelar + Salvar (Salvar DESABILITADO enquanto não-dirty). NADA é auto-save: tudo só persiste no Salvar. CAMPOS DO MODELO (catálogo): id; org_id (sempre do token); code (auto TSK-NNN, RULE-001); module (enum, 11 valores); type (bug/feature/improvement); title; description (HTML rich-text); status (RULE-002); priority (baixa/media/alta + priority_rank derivado, RULE-008); test_notes (markdown, plano de teste, RULE-003); test_feedback (última reprovação); delivered_at (auto, RULE-002); created_at; updated_at; subtask_count/subtask_delivered (derivados); sprint (vínculo, se houver). LEGADO não usado pela UI: impact/confidence/ease/ice_score.",
+      "layer2": {
+        "paths": [
+          "frontend/src/pages/backlog/BacklogDrawer.tsx (CreateTaskView: ordem dos <Field>; EditTaskView: header com menu ⋯, ordem do corpo, footer; defaults type='improvement'/status='ready'/priority='media')",
+          "frontend/src/lib/queries/backlog.ts (type BacklogTask = catálogo de campos; MODULE_OPTIONS; PRIORITY_RANK)"
+        ],
+        "sql": "Colunas em public.backlog_tasks conforme RULE-001/002/003/004/008/011. impact/confidence/ease/ice_score existem mas não são lidos pela UI."
+      }
+    },
+    {
+      "id": "RULE-017",
+      "since": "1.2.0",
+      "title": "Tela principal: abas, filtros, tabela, board, ação em massa, menu de contexto",
+      "layer1": "TOPO: título do módulo + ação 'Sprints' (abre o drawer de sprints) + ação 'Nova task' (abre o drawer de criação). ABAS (tabs, 1 por status na ordem Árvore · Backlog · Teste · Entregue · Finalizadas), cada uma com CONTADOR calculado sobre o conjunto COMPLETO (não o filtrado) pra os números ficarem estáveis. Clicar liga o filtro daquele status; clicar de novo desliga (toggle). 'Finalizadas' é só leitura (RULE-012). BARRA DE FILTROS (todos aplicados no CLIENT; persistidos em localStorage sob chave versionada, EXCETO a busca que começa vazia a cada sessão): busca por texto (casa em título/código/descrição, ignorando HTML); dropdown Tipo (Todos os tipos / Bugs / Features / Melhorias); dropdown Módulo (Todos + os 11 módulos, buscável); dropdown Subtasks (Com e sem / Só com / Sem); dropdown Sprint (Todas + sprints VIVAS — open/in_progress/testing — com o status na descrição); dropdown Ordenar (Prioridade alta→baixa [default] / baixa→alta / Mais recente / Mais antiga; desempate alfabético por título); toggle de visão Lista/Board; toggle 'Agrupar por módulo' (só na visão Lista); botão 'Limpar' (aparece só quando há filtro ativo); contador 'N tasks' (do conjunto filtrado). NÃO existe dropdown de status (as abas cumprem esse papel — RULE-013). TABELA (visão Lista), colunas na ordem: [checkbox de seleção] · Título (com um indicador/flag quando a task tem test_feedback e está em ready/maturing = 'reprovada, aguardando reataque') · Sprint (chip com o código da sprint, ou travessão) · Tipo (badge) · Módulo (badge) · Status (badge) · Prioridade (badge) · Subtasks (entregues/total, ou travessão) · Criada (data relativa: agora / N min / Nh / Nd / data curta). Comportamento da linha: clicar abre a task (drawer); botão direito abre o menu de contexto. Cabeçalho tem checkbox 'selecionar todas' com estado indeterminado. 'Agrupar por módulo' insere linhas-seção (nome do módulo + contagem) agrupando as tasks. BOARD (visão Board): uma coluna por aba (INCLUI 'Finalizadas'), cabeçalho com nome + contagem, cards clicáveis (badges de tipo e prioridade, título, subtasks entregues/total, data). NÃO há drag-and-drop — clicar no card abre a task. MENU DE CONTEXTO (botão direito numa linha): Editar · Duplicar · (sep) · 'Mover pra <status>' para cada um dos 4 status selecionáveis DIFERENTES do atual (NUNCA finalizado) · (sep) · Excluir (danger). BARRA DE AÇÃO EM MASSA (flutua no rodapé quando ≥1 task selecionada): contagem · 'Mover pra' (os 4 status, SEM finalizado) · 'Adicionar à sprint' (só se existe sprint aberta) · 'Criar sprint' · 'Excluir' (danger) · botão de limpar seleção. ESTADOS: carregando (spinner); erro (alerta com botão 'tentar de novo'); vazio (ilustração + título/corpo + CTA contextual — 'criar primeira task' quando sem filtro, 'limpar filtros' quando há filtro).",
+      "layer2": {
+        "paths": [
+          "frontend/src/pages/backlog/BacklogList.tsx (STATUS_TABS=abas; STATUS_GROUPS=destinos selecionáveis; TYPE_OPTIONS/MODULE_OPTIONS/SUBTASK_OPTIONS/ORDER_OPTIONS; sprintOptions=sprints vivas; renderRow=colunas da tabela; bl-kanban=board; buildCtxItems=menu de contexto; bl-bulkbar=ação em massa; LS_KEY + loadFilters/saveFilters + LEGACY_ORDER; stats sobre allTasks)"
+        ],
+        "sql": "Listagem server-side opcional via query (search/type/status/order) — mas a tela busca tudo e filtra no client (RULE-013)."
+      }
+    },
+    {
+      "id": "RULE-018",
+      "since": "1.2.0",
+      "title": "Drawer de Sprints (master→detalhe) e modais de sprint",
+      "layer1": "O painel de Sprints é um DRAWER no padrão master→detalhe. LISTA (master): cada sprint é um card com código (SPR-NNN), nome (= o próprio código), barra de progresso (entregues/total + %), badge de status DERIVADO (RULE-005) e um chevron. Lista vazia → empty state orientando 'selecione tasks no backlog e clique em Criar sprint'. Clicar num card navega pro detalhe (transição lateral). DETALHE: header com botão 'voltar' (volta pra lista), o código da sprint, e ações 'Atacar' (copia a string 'Atacar SPR-NNN' pro clipboard, pra colar no agente) e 'Excluir' (confirm; só desfaz o agrupamento, não toca nas tasks). Corpo: nome, badge de status + contagem 'X/Y tasks entregues', um dropdown de status da sprint (Aberta/Em progresso/Teste/Entregue — normalmente derivado, mas editável aqui à mão), e a lista de tasks da sprint (cada uma: código, título riscado se entregue, badges de tipo e status, e um botão X 'remover da sprint' que NÃO deleta a task — só desassocia). NAVEGAÇÃO POR TECLADO: ESC primeiro volta do detalhe pra lista; estando na lista, ESC fecha o drawer. MODAL 'Criar sprint': só confirmação — o nome é gerado automaticamente (SPR-NNN), agrupa as N tasks selecionadas (transacional, RULE-009); não há campo de nome editável. MODAL 'Adicionar à sprint': mostra uma LISTA clicável (radiogroup, não dropdown) das sprints ABERTAS; adiciona as tasks à escolhida; o botão fica desabilitado/orienta criar nova quando não há nenhuma sprint aberta.",
+      "layer2": {
+        "paths": [
+          "frontend/src/pages/backlog/SprintsDrawer.tsx (SprintListView master + SprintDetailView detalhe; AnimatePresence troca de painel; handleAttack copia 'Atacar SPR-NNN'; remover task = useRemoveSprintTask)",
+          "frontend/src/pages/backlog/CreateSprintModal.tsx (nome=code, só confirma)",
+          "frontend/src/pages/backlog/AddToSprintModal.tsx (radiogroup de sprints abertas)",
+          "frontend/src/lib/queries/backlog.ts (useSprints/useSprint/useCreateSprint/useAddSprintTasks/useRemoveSprintTask/useUpdateSprint/useDeleteSprint; SPRINT_STATUS_LABEL=Aberta/Em progresso/Teste/Entregue)"
+        ],
+        "sql": "public.backlog_sprints + join backlog_sprint_tasks; RPC backlog_create_sprint (RULE-009)."
+      }
+    },
+    {
+      "id": "RULE-019",
+      "since": "1.2.0",
+      "title": "Seletores em pílula (Tipo / Status / Prioridade) — toggle de seleção única",
+      "layer1": "Tipo, Status e Prioridade são editados por uma LINHA DE PÍLULAS — botões em segmento, seleção ÚNICA (exatamente uma ativa por vez). NÃO é dropdown. Tipo: Melhoria / Feature / Bug (cada uma com ícone). Status: só os 4 selecionáveis (Árvore / Backlog / Teste / Entregue) — 'finalizado' NUNCA aparece nas pílulas (RULE-012). Prioridade: Baixa / Média / Alta. Clicar numa pílula seleciona aquele valor; o estado só é persistido no Salvar (sem auto-save). B e C devem usar o componente de toggle/segmented do próprio DS, mantendo o comportamento de seleção única.",
+      "layer2": {
+        "paths": [
+          "frontend/src/pages/backlog/BacklogDrawer.tsx (TypeSelector / StatusSelector / PrioritySelector; STATUSES exclui finalizado; PRIORITIES=[baixa,media,alta]; TYPES=[improvement,feature,bug])"
+        ],
+        "sql": "—"
+      }
+    },
+    {
+      "id": "RULE-020",
+      "since": "1.2.0",
+      "title": "Subtask e ciclo de feedback de teste, na UI",
+      "layer1": "SUBTASK: editada num DRAWER secundário (empilhado sobre o da task — RULE-014). Campos: Título (obrigatório, mín. 2 chars), Descrição (textarea simples), Status (pílulas, mesmo enum da task). Adicionar: input inline 'Nova subtask (Enter pra adicionar)' no rodapé da seção; o cabeçalho da seção mostra contador entregues/total. FEEDBACK DE TESTE (aparece SÓ quando status=testing — comportamento normativo em RULE-004; aqui é a forma na UI): um bloco com editor rich-text + dois botões — 'Reprovar (volta pra Backlog)' e 'Aprovar (Entregue)'. Reprovar EXIGE texto; Aprovar sem texto entrega direto (sem registrar feedback). A ação salva E fecha o drawer automaticamente. EVIDÊNCIAS: prints colados (Ctrl+V) DENTRO da caixa de auditoria sobem amarrados àquele feedback específico (feedback_id); colados fora, viram anexo geral da task. HISTÓRICO DE AUDITORIAS: lista read-only e IMUTÁVEL acima do editor, numerada (#1, #2…) e datada, cada entrada com sua galeria de evidências (clicar abre em lightbox/visualizador). Quando a task voltou pra ready/maturing tendo histórico, o bloco fica destacado como 'aguardando reataque'. Cada decisão é sempre uma entrada NOVA — nunca edita entradas antigas.",
+      "layer2": {
+        "paths": [
+          "frontend/src/pages/backlog/BacklogDrawer.tsx (EditSubtaskView; FeedbackEditor=editor+Reprovar/Aprovar; FeedbackHistory=histórico imutável; FeedbackEvidence=galeria; roteamento do paste por feedbackBoxRef)",
+          "frontend/src/components/ui/Lightbox.tsx",
+          "frontend/src/lib/queries/backlog.ts (useAddFeedback decision reject/approve; useCreateSubtask/useUpdateSubtask/useDeleteSubtask)"
+        ],
+        "sql": "public.backlog_task_feedback (append-only) + backlog_task_attachments.feedback_id (RULE-004/011)."
+      }
+    },
+    {
+      "id": "RULE-021",
+      "since": "1.3.0",
+      "title": "Path do sistema discreto sob o título da tela",
+      "layer1": "Toda tela do módulo exibe, logo ABAIXO do título da página e de forma DISCRETA (texto pequeno, tipografia monoespaçada, cor de baixa proeminência), o PATH/rota atual do sistema — ex: `/app/jira`. É um indicador de localização SÓ-LEITURA: não é navegável, não é breadcrumb clicável, não tem hover de link. Deve refletir a rota real corrente (dinâmico, lido do roteador), nunca um texto fixo hardcoded. B e C mapeiam pro próprio token de tipografia mono + cor mute do DS; o CONTEÚDO (mostrar o path real, discreto, sob o título) é normativo — a estética é do DS de cada sistema.",
+      "layer2": {
+        "paths": [
+          "frontend/src/pages/backlog/BacklogList.tsx (const { pathname } = useLocation(); <span className=\"backlog-head-crumb\">{pathname}</span> sob o <h1>)",
+          "frontend/src/styles/modules/backlog.css (.backlog-head-crumb: font-mono, font-size 11px, color ink-mute)"
+        ],
+        "sql": "—"
+      }
+    },
+    {
+      "id": "RULE-022",
+      "since": "1.3.0",
+      "title": "Motion obrigatório em toda transição (via DS)",
+      "layer1": "Nada no módulo é \"seco\": toda transição relevante É animada, SEMPRE pelos utilitários/padrões de animação do DS — nunca animação ad-hoc com valores chutados. Casos cobertos: (a) troca de rota = fade + deslocamento curto; (b) entrada/saída de DRAWER = desliza pela borda (com fade do overlay); (c) MODAL/toast/popover = fade/scale de entrada e saída; (d) sidebar mobile = slide-in lateral; (e) abrir/fechar listas, expandir, estados vazios = transição suave. EMPILHAMENTO de drawer também é animado (o de baixo recua). REGRA DE ACESSIBILIDADE INVIOLÁVEL: sempre respeitar prefers-reduced-motion — quando ativo, suprime deslocamento/scale e mantém no máximo um fade mínimo. Durações, curvas (easing) e distâncias são definidas pelo DS; B e C usam o equivalente do próprio DS, não reinventam números.",
+      "layer2": {
+        "paths": [
+          "frontend/src/hooks/useMediaQuery.ts (usePrefersReducedMotion)",
+          "framer-motion (AnimatePresence + motion.*) usado em drawers/modais/rotas",
+          "frontend/src/pages/backlog/*.tsx (drawers e listas animados; reduced => sem x/scale)"
+        ],
+        "sql": "—"
+      }
+    },
+    {
+      "id": "RULE-023",
+      "since": "1.3.0",
+      "title": "Aderência ao Design System (regra obrigatória)",
+      "layer1": "Todos os componentes, padrões, comportamentos, interações, animações, espaçamentos, tipografias, cores, estados e elementos necessários pra atender as regras deste documento DEVEM seguir rigorosamente o Design System (DS) oficial de cada projeto. NÃO é permitido criar variações, adaptações, interpretações ou implementações alternativas quando já existe um padrão definido no DS. Em caso de conflito entre este documento e uma implementação específica, PREVALECE a solução definida pelo Design System. A consistência visual e comportamental entre telas, módulos e projetos é um REQUISITO OBRIGATÓRIO, não uma recomendação. (Esta regra é transversal: governa COMO todas as outras regras de UI deste doc são implementadas em A/B/C.)",
+      "layer2": {
+        "paths": [
+          "frontend/src/styles/guuliver-ds.css (tokens --g-*)",
+          "frontend/src/styles/app.css (componentes globais .g-*)",
+          "CLAUDE.md (Arquitetura de CSS 3 camadas + catálogo de componentes globais + guard-rails stylelint/eslint)"
+        ],
         "sql": "—"
       }
     }
