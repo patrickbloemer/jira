@@ -7,8 +7,13 @@
 > Esta prosa acompanha o `registry.json` (regras versionadas, máquina-legível).
 > **Camada 1** = declarativa (aqui). **Camada 2** = referência de implementação
 > (paths + SQL do Sistema A: Nexus), dentro de cada regra no `registry.json`.
+>
+> **ESCOPO:** o doc descreve **só features do módulo Jira** (comportamento, UI, máquina
+> de estados, entidades). **Infra de host** — auth, multi-tenant/`org_id`, RLS, papéis
+> de acesso — **não entra como regra**; é decisão de cada sistema. O `org_id`/RLS que
+> aparece na **camada 2** é só referência da implementação do Nexus.
 
-- **Versão:** 1.5.1
+- **Versão:** 1.6.0
 - **Sistema A (referência):** Nexus — `github.com/patrickbloemer/nexus`
 - **Prefixo DB:** `backlog_` · **Label UI:** "Jira"
 
@@ -30,14 +35,11 @@ _(detalhar conforme evoluir)_
 
 ## 2. Modelo de dados
 
-Soft delete (`deleted_at`) em tudo. **Isolamento de dados é system-dependent** (não
-normativo): o Sistema A é multi-tenant (`org_id` em tudo, vindo do token); sistemas
-single-tenant (ex: adspulse/Helios, DEV-002) não usam `org_id` — ver `conventions` e
-RULE-007.
+Soft delete (`deleted_at`) em tudo.
 Tabelas: `backlog_tasks`, `backlog_subtasks`, `backlog_sprints`,
 `backlog_sprint_tasks`, `backlog_task_feedback`, `backlog_task_attachments`,
 `backlog_task_counters`.
-→ RULE-001, RULE-006, RULE-007, RULE-008, RULE-010, RULE-011
+→ RULE-001, RULE-006, RULE-008, RULE-010, RULE-011
 
 ## 3. Máquina de estados
 
@@ -47,9 +49,9 @@ Tabelas: `backlog_tasks`, `backlog_subtasks`, `backlog_sprints`,
 
 ## 4. API REST
 
-Rotas sob `/api/backlog`. Acesso interno (no Sistema A: só funcionário + `org_id` do
-token — ambos específicos de A; ver RULE-007).
-→ RULE-007, RULE-009, RULE-011
+Rotas sob `/api/backlog`. (Auth/escopo de acesso é decisão de cada sistema, fora do
+escopo do doc — ver nota de ESCOPO no topo.)
+→ RULE-009, RULE-011
 
 ## 5. Tela lista/board + drawers
 
@@ -152,7 +154,6 @@ acidental.
 | RULE-004 | 1.0.0 | Ciclo de feedback de teste (imutável)                    |
 | RULE-005 | 1.0.0 | Status da sprint é derivado das tasks                    |
 | RULE-006 | 1.0.0 | Soft delete em tudo                                      |
-| RULE-007 | 1.0.0 | Módulo interno + isolamento de dados (org_id é do Sistema A) |
 | RULE-008 | 1.0.0 | Prioridade simples (baixa/media/alta) + priority_rank    |
 | RULE-009 | 1.0.0 | Sprint: code SPR-NNN, name=code, criação transacional    |
 | RULE-010 | 1.0.0 | Subtasks de 1 nível                                      |
