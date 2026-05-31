@@ -13,7 +13,7 @@
 > de acesso — **não entra como regra**; é decisão de cada sistema. O `org_id`/RLS que
 > aparece na **camada 2** é só referência da implementação do Nexus.
 
-- **Versão:** 2.1.0
+- **Versão:** 2.2.0
 - **Sistema A (referência):** Nexus — `github.com/patrickbloemer/nexus`
 - **Prefixo DB:** `backlog_` · **Label UI:** "Jira"
 
@@ -77,6 +77,18 @@ assim" — cada sistema mapeia pro próprio componente.
 → RULE-014, RULE-015
 
 ## 8. Anatomia da task
+
+> **Micro-comportamentos (2.2.0):** RULE-016 agora também crava detalhes finos de
+> comportamento que antes ficavam implícitos — editor rich-text com **toolbar ABAIXO**
+> do campo (ordem Negrito·Itálico·Sublinhado | Lista·Lista-numerada; Ctrl/Cmd+B/I/U;
+> auto-lista por `1. `/`1) `/`- `/`* `+espaço; Enter continua/sai da lista; clique no
+> botão preserva seleção); **Enter** submete de qualquer campo exceto textarea/rich-text/
+> Shift+Enter; rótulos **Criar task**/**Salvar**; clique no **TSK-NNN** copia+toast;
+> **Duplicar** força status `maturing` e sufixo `(cópia)`. Tipos de anexo (RULE-011):
+> png/jpeg/webp/gif/svg/pdf. Datas relativas (RULE-017): `agora`/`N min`/`Nh`/`Nd`/data
+> curta. Status da sprint no drawer (RULE-018) é a **única exceção** ao "nada é auto-save".
+
+
 
 Catálogo normativo dos campos da task — quais existem, em que ordem aparecem, quais são
 obrigatórios, quais são legados (não exibir). Mesma anatomia em A/B/C. As pílulas de
