@@ -13,7 +13,7 @@
 > de acesso — **não entra como regra**; é decisão de cada sistema. O `org_id`/RLS que
 > aparece na **camada 2** é só referência da implementação do Nexus.
 
-- **Versão:** 2.2.0
+- **Versão:** 2.3.0
 - **Sistema A (referência):** Nexus — `github.com/patrickbloemer/nexus`
 - **Prefixo DB:** `backlog_` · **Label UI:** "Jira"
 
@@ -121,9 +121,10 @@ nunca texto fixo. Não é breadcrumb clicável.
 
 ## 12. Motion (obrigatório)
 
-Nada é seco: toda transição (rota, drawer, modal, toast, popover, sidebar mobile,
-listas/estados) é animada **via o DS**, sempre respeitando `prefers-reduced-motion`.
-Durações/curvas/distâncias são do DS — B/C usam o equivalente próprio.
+Nada é seco: toda transição (rota, drawer, modal, toast, popover, **menu/dropdown/kebab/
+submenu**, sidebar mobile, listas/estados) é animada **via o DS** na abertura **e** no
+fechamento, sempre respeitando `prefers-reduced-motion`. Durações/curvas/distâncias são
+do DS — B/C usam o equivalente próprio.
 → RULE-022
 
 ## 13. Aderência ao Design System (transversal)
@@ -132,7 +133,9 @@ Componentes, padrões, comportamentos, interações, animações, espaçamentos,
 cores e estados seguem **rigorosamente o DS oficial** de cada projeto. Proibido criar
 variações quando já existe padrão no DS; em conflito, prevalece o DS. Consistência
 visual e comportamental é requisito obrigatório, não recomendação. Governa **como**
-todas as outras regras de UI deste doc são implementadas.
+todas as outras regras de UI deste doc são implementadas. **Affordance (2.3.0):** todo
+elemento interativo (incl. item que abre submenu) expõe `cursor: pointer`, `hover` e foco
+visível via DS — nunca alvo de clique "morto".
 → RULE-023
 
 ## 14. Atalhos globais + deep-link
